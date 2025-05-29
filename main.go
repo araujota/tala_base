@@ -141,6 +141,27 @@ func (s *Server) handleWorkflow(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, result)
 }
 
+// handleListWorkflows returns a list of all available workflows
+func (s *Server) handleListWorkflows(w http.ResponseWriter, r *http.Request) {
+	utils.SetCORSHeaders(w)
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		utils.RespondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Get list of workflows
+	workflows := s.executor.GetWorkflows()
+
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"workflows": workflows,
+	})
+}
+
 func main() {
 	server := NewServer()
 
@@ -150,6 +171,9 @@ func main() {
 	// Handle workflow executions
 	http.HandleFunc("/workflow/", server.handleWorkflow)
 
+	// Handle workflow listing
+	http.HandleFunc("/workflows", server.handleListWorkflows)
+
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -158,10 +182,13 @@ func main() {
 
 	log.Printf("Starting server on port %s", port)
 	log.Printf("Available endpoints:")
+	log.Printf("  List workflows:  GET  /workflows")
 	log.Printf("  Direct lambda:   POST /lambda/<lambda_name>")
 	log.Printf("  Workflow:        POST /workflow/<workflow_name>")
 	log.Printf("\nExample usage:")
-	log.Printf("  # Call lambda directly")
+	log.Printf("  # List available workflows")
+	log.Printf("  curl http://localhost:%s/workflows", port)
+	log.Printf("\n  # Call lambda directly")
 	log.Printf("  curl -X POST http://localhost:%s/lambda/user_create -H \"Content-Type: application/json\" -d '{\"data\":{\"email\":\"test@example.com\",\"name\":\"Test User\"}}'", port)
 	log.Printf("\n  # Execute workflow")
 	log.Printf("  curl -X POST http://localhost:%s/workflow/user_signup_chain -H \"Content-Type: application/json\" -d '{\"data\":{\"email\":\"test@example.com\",\"name\":\"Test User\"}}'", port)

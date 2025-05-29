@@ -16,11 +16,20 @@ import (
 
 type ChainExecutor struct {
 	workflows map[string]types.Workflow
+	ports     map[string]int
 }
 
 func NewChainExecutor() *ChainExecutor {
+	// Default port mapping based on local_deploy.sh
+	ports := map[string]int{
+		"user_create": 8080,
+		"user_read":   8081,
+		"user_update": 8082,
+		"user_delete": 8083,
+	}
 	return &ChainExecutor{
 		workflows: make(map[string]types.Workflow),
+		ports:     ports,
 	}
 }
 
@@ -52,8 +61,14 @@ func (e *ChainExecutor) ExecuteStep(step types.Step, state *types.WorkflowState)
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	// Call lambda
-	lambdaURL := fmt.Sprintf("http://%s:8080", step.Lambda)
+	// Get port for lambda
+	port, exists := e.ports[step.Lambda]
+	if !exists {
+		return nil, fmt.Errorf("no port mapping found for lambda %s", step.Lambda)
+	}
+
+	// Call lambda with correct port
+	lambdaURL := fmt.Sprintf("http://localhost:%d", port)
 	resp, err := http.Post(lambdaURL, "application/json", &inputBuf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call lambda: %w", err)
@@ -64,6 +79,18 @@ func (e *ChainExecutor) ExecuteStep(step types.Step, state *types.WorkflowState)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read lambda response: %w", err)
+	}
+
+	// Validate Content-Type
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		return &types.StepResult{
+			Error: &types.WorkflowError{
+				Step:    step.Name,
+				Message: fmt.Sprintf("lambda returned unexpected Content-Type: %s, body: %s", contentType, string(body)),
+				Code:    "INVALID_RESPONSE_TYPE",
+			},
+		}, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -79,7 +106,13 @@ func (e *ChainExecutor) ExecuteStep(step types.Step, state *types.WorkflowState)
 	// Parse response
 	var result types.StepResult
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse lambda response: %w", err)
+		return &types.StepResult{
+			Error: &types.WorkflowError{
+				Step:    step.Name,
+				Message: fmt.Sprintf("failed to parse lambda response as JSON: %s, error: %v", string(body), err),
+				Code:    "INVALID_JSON",
+			},
+		}, nil
 	}
 
 	return &result, nil
@@ -160,4 +193,13 @@ func (e *ChainExecutor) ExecuteChain(name string, input types.WorkflowInput) (*t
 		Data:    lastState.Output.Data,
 		Context: lastState.Input.Context,
 	}, nil
+}
+
+// GetWorkflows returns a list of all available workflow names
+func (e *ChainExecutor) GetWorkflows() []string {
+	workflows := make([]string, 0, len(e.workflows))
+	for name := range e.workflows {
+		workflows = append(workflows, name)
+	}
+	return workflows
 }
