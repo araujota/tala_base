@@ -5,10 +5,8 @@ steps:
     lambda: user_create
     input_template: |
       {
-        "data": {
-          "email": "{{.input.data.email}}",
-          "name": "{{.input.data.name}}"
-        }
+        "email": "{{.input.email}}",
+        "name": "{{.input.name}}"
       }
     pass_output_as: user
 
@@ -16,9 +14,7 @@ steps:
     lambda: user_read
     input_template: |
       {
-        "data": {
-          "id": "{{.user.data.id}}"
-        }
+        "id": "{{.user.user.id}}"
       }
     pass_output_as: verified_user
 
@@ -26,8 +22,6 @@ steps:
     lambda: user_delete
     input_template: |
       {
-        "data": {
-          "id": "{{.user.data.id}}"
-        }
+        "id": "{{.user.user.id}}"
       }
     pass_output_as: cleanup_result 
