@@ -1,0 +1,34 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Lambda specific
+lambdas/*/.env
+lambdas/*/.pid
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/bin/
+/dist/
+/tmp/

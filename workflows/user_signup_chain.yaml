@@ -1,0 +1,33 @@
+name: user_signup_chain
+description: Creates a user, verifies it exists, then deletes it
+steps:
+  - name: create_user
+    lambda: user_create
+    input_template: |
+      {
+        "data": {
+          "email": "{{.input.data.email}}",
+          "name": "{{.input.data.name}}"
+        }
+      }
+    pass_output_as: user
+
+  - name: verify_user
+    lambda: user_read
+    input_template: |
+      {
+        "data": {
+          "id": "{{.user.data.id}}"
+        }
+      }
+    pass_output_as: verified_user
+
+  - name: cleanup_user
+    lambda: user_delete
+    input_template: |
+      {
+        "data": {
+          "id": "{{.user.data.id}}"
+        }
+      }
+    pass_output_as: cleanup_result 
